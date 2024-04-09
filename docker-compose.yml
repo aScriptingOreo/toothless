@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    #ports:
+    #  - "3000:${PORT}"
+    volumes:
+      - .:/app
+    environment:
+      - PORT=${PORT}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.app.rule=Host(`nsfw.ascriptingoreo.online`)"
+      - "traefik.http.services.app.loadbalancer.server.port=${PORT}"
+      - "traefik.http.routers.app.entrypoints=http"
