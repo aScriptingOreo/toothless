@@ -1,16 +1,35 @@
-FROM node:20-buster
+FROM oven/bun:latest as builder
 
 WORKDIR /app
 
-COPY package*.json ./
+# Copy package files
+COPY package.json bun.lockb ./
 
-RUN npm i -g bun ts-node typescript
+# Install dependencies
+RUN bun install --frozen-lockfile
 
-RUN bun i
-
+# Copy source code
 COPY . .
 
-EXPOSE 3000
+# Build the static site
+RUN bun run build
 
-ARG PORT
-CMD [ "bun", "run", "start"	 ]
+# Final stage - serve with vite preview
+FROM oven/bun:latest
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json bun.lockb ./
+
+# Install dependencies (production only)
+RUN bun install --frozen-lockfile --production
+
+# Copy built artifacts from builder
+COPY --from=builder /app/build ./build
+
+# Expose port
+EXPOSE 5173
+
+# Serve the static build
+CMD ["bun", "run", "preview", "--host", "0.0.0.0"]
