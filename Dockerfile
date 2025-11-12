@@ -1,35 +1,33 @@
-FROM oven/bun:latest as builder
+## Multi-stage build: build with Node, serve static output with nginx (small runtime)
+
+#############################
+# Builder: use Node (alpine) to build the static site
+#############################
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json bun.lockb ./
+# Install dependencies (including dev deps needed for build)
+COPY package.json package-lock.json* ./
+RUN npm ci --silent || npm install --silent
 
-# Install dependencies
-RUN bun install --frozen-lockfile
-
-# Copy source code
+# Copy source and build
 COPY . .
+RUN npm run build
 
-# Build the static site
-RUN bun run build
+#############################
+# Final: lightweight nginx to serve the built static files
+#############################
+FROM nginx:alpine
 
-# Final stage - serve with vite preview
-FROM oven/bun:latest
+# Remove default nginx content
+RUN rm -rf /usr/share/nginx/html/*
 
-WORKDIR /app
+# Copy built site from builder
+COPY --from=builder /app/build /usr/share/nginx/html
 
-# Copy package files
-COPY package.json bun.lockb ./
+# Expose standard HTTP port
+EXPOSE 80
 
-# Install dependencies (production only)
-RUN bun install --frozen-lockfile --production
-
-# Copy built artifacts from builder
-COPY --from=builder /app/build ./build
-
-# Expose port
-EXPOSE 5173
-
-# Serve the static build
-CMD ["bun", "run", "preview", "--host", "0.0.0.0"]
+# Run nginx in foreground
+CMD ["nginx", "-g", "daemon off;"]
